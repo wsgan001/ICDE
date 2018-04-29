@@ -14,7 +14,7 @@ class App(object):
 		window.wm_title("ICDE")
 		window.geometry('550x250')
 
-		conn = mdb.connect("localhost","root","Nutella4898","icde")
+		conn = mdb.connect(ip,user,pswd,db)
 		cursor = conn.cursor()
 
 		#set the current row to zero
@@ -52,7 +52,7 @@ class App(object):
 		self.tree.heading("five",text="Validity Date")
 
 		for i in range(0,6):
-			cursor.execute("""SELECT * FROM users""")
+			cursor.execute("""SELECT * FROM user""")
 			
 		for row in cursor:
 			self.tree.insert('','end',text=row[0],values=(row[1],row[2],row[3],row[4],row[5]))
@@ -91,6 +91,7 @@ class App(object):
 		self.update_wind.mainloop()
 
 	def upload_id(self):
+		self.update_wind.withdraw()
 		self.upload_wind = Toplevel()
 		self.upload_wind.title("Upload ID")
 		Label(self.upload_wind, text = "File").grid(row=1, column=0)
@@ -100,7 +101,8 @@ class App(object):
 		self.upload_wind.mainloop()
 
 	def load_file(self):
-		self.filename = tkFileDialog.askopenfilename(initialdir = "tf_files/source_images/",title = "Browse file",filetypes = (("jpg","*.jpg*"),("jpeg","*.jpeg*"),("png","*.png*"),("all files","*.*")))
+		self.upload_wind.withdraw()
+		self.filename = tkFileDialog.askopenfilename(initialdir = "tf_files/source_images/",title = "Browse file",filetypes = (("all files","*.*"),("jpg","*.jpg*"),("jpeg","*.jpeg*"),("png","*.png*")))
 		filen = self.filename.split("/")
 		path = filen[8]+"/"+filen[9]
 		print(path)
@@ -112,11 +114,30 @@ class App(object):
 		classified = open('tf_files/classified.txt','r').read()
 		id_type = classified
 		os.system('python scripts/data_extractor.py --image tf_files/{0} --type {1}'.format(path,id_type))
+		#run validator
+		os.system('python scripts/validate.py')
+		#validate();
 		return
+
+	def validate(self):
+		user_id = self.tree.item(self.tree.selection())["text"]
+		fname = self.tree.item(self.tree.selection())["values"][0]
+		mname = self.tree.item(self.tree.selection())["values"][1]
+		lname = self.tree.item(self.tree.selection())["values"][2]
+
+		#validate from db
+		#select card type from identification card
+		#assign to id_type
+		#insert to user 
+
+		#select expiry_date from identification card
+		#assign to valid_date
+		#insert to user 
+
 
 def main():
 	window= Tk()
-	start= App(window,"127.0.0.1","root","Nutella4898","icde")
+	start= App(window,"localhost","root","Nutella4898","icde")
 	window.mainloop()
 
 if __name__ == "__main__":

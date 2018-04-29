@@ -4,6 +4,11 @@ import cv2
 import pytesseract
 import argparse
 import os
+import re
+import pymysql as mdb
+from datetime import datetime
+from dateutil.parser import parse
+import pandas as pd
 from PIL import Image
 from os import listdir
 from os import makedirs
@@ -17,13 +22,51 @@ def store_image(img, foldern, filen):
         makedirs(fpath)
     cv2.imwrite(fpath+filen, img)
 
-def extract_data(img):
+def extract_data(img,info,dinfo,dtype):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     gray = cv2.threshold(gray, 0, 255,
         cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
     #store_image(gray, "5gray_contours_tesseract", filen[2])
     text = pytesseract.image_to_string(gray)
-    print(text)
+    if(dtype==1):
+        dinfo.append(text)
+    else:
+        info.append(text+"\n")
+    return dinfo
+
+def change_format(m,dt,dtype):
+    if(dtype=="driversA" or dtype=="driversB"):
+        return re.sub(r'(\d{4})\s(\d{1,2})\s(\d{1,2})', '\\1-\\2-\\3', dt)
+    elif(dtype=="prc"):
+        return re.sub(r'(\d{1,2})\s(\d{1,2})\s(\d{4})', '\\3-\\1-\\2', dt)
+    else:
+        if(m=="Jan" or m=="JAN"):
+            m="01"
+        elif(m=="Feb" or m=="FEB"):
+            m="02"
+        elif(m=="Mar" or m=="MAR"):
+            m="03"
+        elif(m=="Apr" or m=="APR"):
+            m="04"
+        elif(m=="May" or m=="MAY"):
+            m="05"
+        elif(m=="Jun" or m=="JUN"):
+            m="06"
+        elif(m=="Jul" or m=="JUL"):
+            m="07"
+        elif(m=="Aug" or m=="AUG"):
+            m="08"
+        elif(m=="Sep" or m=="SEP"):
+            m="09"
+        elif(m=="Oct" or m=="OCT"):
+            m="10"
+        elif(m=="Nov" or m=="NOV"):
+            m="11"
+        elif(m=="Dec" or m=="DEC"):
+            m="12"
+
+        dt=m+" "+dt
+        return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})', '20\\3-\\1-\\2', dt)
 
 def locate_points(pts):
     ret = np.zeros((4,2), dtype = "float32")
@@ -123,7 +166,7 @@ def find_card(img,filen):
     return box
 
 #
-def extract(image):
+def extract(image,info,dinfo,dtype):
     #downsample and apply grayscale
     rgb = pyrDown(image)
     gray = cvtColor(rgb, cv2.COLOR_BGR2GRAY)
@@ -137,7 +180,7 @@ def extract(image):
     #noise removal
     _, bw = threshold(morph, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     kernel = getStructuringElement(cv2.MORPH_RECT, (5, 1))
-    #store_image(bw, "8binarized_tesseract", filen[2])
+    store_image(bw, "8binarized_tesseract", filen[2])
 
     #connected components
     connected = morphologyEx(bw, cv2.MORPH_CLOSE, kernel)
@@ -158,15 +201,25 @@ def extract(image):
             cropped = cnt[y:y+rect_height, x:x+rect_width]
             store_image(cropped, "5contours_tesseract", filen[2])
             #apply ocr for each component
-            extract_data(cropped)
+            dinfo = extract_data(cropped,info,dinfo,dtype)
         if r > 0.5 and rect_height > 15 and rect_width > 35 and rect_height < rect_width:
             cnt = rectangle(rgb, (x, y+rect_height), (x+rect_width, y), (0,255,0),2)
             
     store_image(cnt, "4possible_contours_tesseract", filen[2])
-    return cnt
+    return dinfo
+
+def insert_into_db(ip,user,pswd,db,dtype,extracted,dextracted):
+    cursor.execute("""INSERT INTO identification_card VALUES (%s,%s,%s,%s)""",(0,dtype,extracted,dextracted))
     
 #=======MAIN PROGRAM========
 #arguments
+ip="localhost"
+user="root"
+pswd="Nutella4898"
+db="icde"
+conn = mdb.connect(ip,user,pswd,db)
+cursor = conn.cursor()
+
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required = True, help = "path")
 ap.add_argument("-t", "--type", type = str,  required = True)
@@ -185,6 +238,8 @@ contoured = cv2.drawContours(image.copy(), [card], -1, (0,255,0), 3)
 #warp and crop
 image = warp(contoured, card)
 store_image(image, "1perspective_crop", filen[2])
+info = []
+dinfo = []
 
 #crop rois per type
 if args["type"] == "driversA":
@@ -192,57 +247,74 @@ if args["type"] == "driversA":
     #crop name
     n_roi = image[420:570, 1:1625]
     store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi)
+    extract(n_roi,info,dinfo,0)
     #crop date
     d_roi = image[965:1075, 1725:2200]
     store_image(d_roi, "2b_date_roi", filen[2])
-    extract(d_roi)
+    dinfo =extract(d_roi,info,dinfo,1)
 elif args["type"] == "driversB":
     print("drivers_b")
     #crop name
     n_roi = image[485:655, 670:2165]
     store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi)
+    extract(n_roi,info,dinfo,0)
     #crop date
     d_roi = image[1065:1230, 1250:1690]
     store_image(d_roi, "2b_date_roi", filen[2])
-    extract(d_roi)
+    dinfo =extract(d_roi,info,dinfo,1)
 elif args["type"] == "passport":
     print("passport")
     #crop name
     n_roi = image[285:735, 730:1300]
     store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi)
+    extract(n_roi,info,dinfo,0)
     #crop date
     d_roi = image[1125:1300, 720:1145]
     store_image(d_roi, "2b_date_roi", filen[2])
-    extract(d_roi)
+    dinfo =extract(d_roi,info,dinfo,1)
 elif args["type"] == "prc":
     print("prc")
     #crop name
     n_roi = image[570:900, 515:1240]
     store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi)
+    extract(n_roi,info,dinfo,0)
     #crop date
-    d_roi = image[1040:1205, 510:1090]
+    d_roi = image[1040:1200, 510:1090]
     store_image(d_roi, "2b_date_roi", filen[2])
-    extract(d_roi)
-elif args["type"] == "up":
-    print("up")
-    #crop name
-    n_roi = image[625:840, 1:1410]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi)
-    #crop date
-    d_roi = image[1250:1505, 550:890]
-    store_image(d_roi, "2b_date_roi", filen[2])
-    extract(d_roi)
-    #crop sem
-    s_roi = image[1150:1435, 225:515]
-    store_image(s_roi, "2c_sem_roi", filen[2])
-    extract(s_roi)
+    dinfo = extract(d_roi,info,dinfo,1)
 else: 
     print("no expiration date")
 
+extracted = " "
+for i in info:
+    extracted += i
+
+extracted = re.sub('[^A-Z\n]',' ',extracted)
+classified = open('tf_files/name_info.txt','w')
+classified.write(extracted.encode('utf-8').strip())
+classified.close() 
+extracted = re.sub('\n',' ',extracted)
+
+dextracted = " "
+month = " "
+for i in dinfo:
+    dextracted += i
+
+#change format
+if(args["type"]!="passport"):
+    dextracted = re.sub('[^0-9]',' ',dextracted)
+else:
+    month = re.sub('[^A-Za-z]','',dextracted)
+    dextracted = re.sub('[^0-9]',' ',dextracted)
+
+dextracted = change_format(month,dextracted,args["type"])
+converted = re.sub('\\s+','',dextracted)
+
+classified = open('tf_files/date_info.txt','w')
+classified.write(converted)
+classified.close() 
+insert_into_db(ip,user,pswd,db,args["type"],extracted,dextracted);
+conn.commit()
+conn.close()
 
 cv2.waitKey()

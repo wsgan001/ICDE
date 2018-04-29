@@ -2,6 +2,4 @@ drivers a
 drivers b
 no expiration
 passport
-postal
 prc
-up id
