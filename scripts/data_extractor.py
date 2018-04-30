@@ -65,6 +65,7 @@ def change_format(m,dt,dtype):
         elif(m=="Dec" or m=="DEC"):
             m="12"
 
+        print(dt)
         dt=m+" "+dt
         return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})', '20\\3-\\1-\\2', dt)
 
@@ -208,8 +209,8 @@ def extract(image,info,dinfo,dtype):
     store_image(cnt, "4possible_contours_tesseract", filen[2])
     return dinfo
 
-def insert_into_db(ip,user,pswd,db,dtype,extracted,dextracted):
-    cursor.execute("""INSERT INTO identification_card VALUES (%s,%s,%s,%s)""",(0,dtype,extracted,dextracted))
+def insert_into_db(ip,user,pswd,db,user_id,fname,mname,lname,dtype,dextracted):
+    cursor.execute("""INSERT INTO identification_card VALUES (%s,%s,%s,%s,%s,%s,%s)""",(0,user_id,fname,mname,lname,dtype,dextracted))
     
 #=======MAIN PROGRAM========
 #arguments
@@ -223,6 +224,8 @@ cursor = conn.cursor()
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required = True, help = "path")
 ap.add_argument("-t", "--type", type = str,  required = True)
+ap.add_argument("-n", "--name", type = str,  required = True)
+ap.add_argument("-u", "--user", type = str,  required = True)
 args = vars(ap.parse_args())
 
 #load image and find square
@@ -240,80 +243,110 @@ image = warp(contoured, card)
 store_image(image, "1perspective_crop", filen[2])
 info = []
 dinfo = []
+extracted = " "
 
 #crop rois per type
-if args["type"] == "driversA":
-    print("drivers_a")
-    #crop name
-    n_roi = image[420:570, 1:1625]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi,info,dinfo,0)
-    #crop date
-    d_roi = image[965:1075, 1725:2200]
-    store_image(d_roi, "2b_date_roi", filen[2])
-    dinfo =extract(d_roi,info,dinfo,1)
-elif args["type"] == "driversB":
-    print("drivers_b")
-    #crop name
-    n_roi = image[485:655, 670:2165]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi,info,dinfo,0)
-    #crop date
-    d_roi = image[1065:1230, 1250:1690]
-    store_image(d_roi, "2b_date_roi", filen[2])
-    dinfo =extract(d_roi,info,dinfo,1)
-elif args["type"] == "passport":
-    print("passport")
-    #crop name
-    n_roi = image[285:735, 730:1300]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi,info,dinfo,0)
-    #crop date
-    d_roi = image[1125:1300, 720:1145]
-    store_image(d_roi, "2b_date_roi", filen[2])
-    dinfo =extract(d_roi,info,dinfo,1)
-elif args["type"] == "prc":
-    print("prc")
-    #crop name
-    n_roi = image[570:900, 515:1240]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi,info,dinfo,0)
-    #crop date
-    d_roi = image[1040:1200, 510:1090]
-    store_image(d_roi, "2b_date_roi", filen[2])
-    dinfo = extract(d_roi,info,dinfo,1)
-else: 
+if args["type"] == "no_expiration":
     print("no expiration date")
+    #crop name
+    n_roi = image[535:995, 340:830]
+    store_image(n_roi, "2a_name_roi", filen[2])
+    extract(n_roi,info,dinfo,0)
 
-extracted = " "
-for i in info:
-    extracted += i
+    for i in info:
+        extracted += i
 
-extracted = re.sub('[^A-Z\n]',' ',extracted)
-classified = open('tf_files/name_info.txt','w')
-classified.write(extracted.encode('utf-8').strip())
-classified.close() 
-extracted = re.sub('\n',' ',extracted)
-
-dextracted = " "
-month = " "
-for i in dinfo:
-    dextracted += i
-
-#change format
-if(args["type"]!="passport"):
-    dextracted = re.sub('[^0-9]',' ',dextracted)
+    extracted = re.sub('[^A-Z\n]',' ',extracted)
+    extracted = re.sub('\n',' ',extracted)
 else:
-    month = re.sub('[^A-Za-z]','',dextracted)
-    dextracted = re.sub('[^0-9]',' ',dextracted)
+    if args["type"] == "driversA":
+        print("drivers_a")
+        #crop name
+        n_roi = image[420:570, 1:1625]
+        store_image(n_roi, "2a_name_roi", filen[2])
+        extract(n_roi,info,dinfo,0)
+        #crop date
+        d_roi = image[965:1075, 1725:2200]
+        store_image(d_roi, "2b_date_roi", filen[2])
+        dinfo =extract(d_roi,info,dinfo,1)
+    elif args["type"] == "driversB":
+        print("drivers_b")
+        #crop name
+        n_roi = image[485:655, 670:2165]
+        store_image(n_roi, "2a_name_roi", filen[2])
+        extract(n_roi,info,dinfo,0)
+        #crop date
+        d_roi = image[1065:1230, 1250:1690]
+        store_image(d_roi, "2b_date_roi", filen[2])
+        dinfo =extract(d_roi,info,dinfo,1)
+    elif args["type"] == "passport":
+        print("passport")
+        #crop name
+        n_roi = image[285:735, 730:1300]
+        store_image(n_roi, "2a_name_roi", filen[2])
+        extract(n_roi,info,dinfo,0)
+        #crop date
+        d_roi = image[1125:1300, 720:1145]
+        store_image(d_roi, "2b_date_roi", filen[2])
+        dinfo =extract(d_roi,info,dinfo,1)
+    elif args["type"] == "prc":
+        print("prc")
+        #crop name
+        n_roi = image[570:900, 515:1240]
+        store_image(n_roi, "2a_name_roi", filen[2])
+        extract(n_roi,info,dinfo,0)
+        #crop date
+        d_roi = image[1040:1200, 510:1090]
+        store_image(d_roi, "2b_date_roi", filen[2])
+        dinfo = extract(d_roi,info,dinfo,1)
 
-dextracted = change_format(month,dextracted,args["type"])
-converted = re.sub('\\s+','',dextracted)
+    for i in info:
+        extracted += i
 
-classified = open('tf_files/date_info.txt','w')
-classified.write(converted)
-classified.close() 
-insert_into_db(ip,user,pswd,db,args["type"],extracted,dextracted);
+    extracted = re.sub('[^A-Z\n]',' ',extracted)
+    extracted = re.sub('\n',' ',extracted)
+
+    dextracted = " "
+    month = " "
+    for i in dinfo:
+        dextracted += i
+
+    #change format
+    if(args["type"]!="passport"):
+        dextracted = re.sub('[^0-9]',' ',dextracted)
+    else:
+        month = re.sub('[^A-Za-z]','',dextracted)
+        dextracted = re.sub('[^0-9]',' ',dextracted)
+
+    dextracted = change_format(month,dextracted,args["type"])
+    converted = re.sub('\\s+','',dextracted)
+
+print(extracted)
+uname = args["name"].split("/") 
+#validate name
+if ((uname[0]).upper() in extracted) or ((uname[1]).upper() in extracted):
+    #if date is still valid insert into db
+    uname[1] = re.sub('-'," ",uname[1])
+    uname[2] = re.sub('-'," ",uname[2])
+    print("===========NAME===========")
+    print(uname[0]+","+uname[1]+" "+uname[2])
+    if args["type"] == "no_expiration":
+        insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],None); 
+        error_message = " "      
+    else:
+        if(datetime.strptime(converted, "%Y-%m-%d").date()>datetime.today().date()):
+            print("===========DATE===========")
+            print(dextracted)
+            insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],dextracted);
+            error_message = " "
+        else:
+            error_message = "Invalid date"
+else:
+    error_message = "ID does not belong to the user"
+    
+error = open('tf_files/error.txt','w')
+error.write(error_message)
+error.close() 
 conn.commit()
 conn.close()
 

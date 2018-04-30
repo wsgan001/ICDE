@@ -144,6 +144,7 @@ if __name__ == "__main__":
 
   if(id_type == "no expiration"):
     print("No expiration")
+    id_type="no_expiration"
   else:
     if(id_type == "drivers a"):
       id_type="driversA"
