@@ -65,7 +65,7 @@ def change_format(m,dt,dtype):
         elif(m=="Dec" or m=="DEC"):
             m="12"
 
-        print(dt)
+        #print(dt)
         dt=m+" "+dt
         return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})', '20\\3-\\1-\\2', dt)
 
@@ -231,7 +231,7 @@ args = vars(ap.parse_args())
 #load image and find square
 image = cv2.imread(args["image"])
 filen = args["image"].split("/")
-print("Input image: " + filen[2])
+#print("Input image: " + filen[2])
 card = find_card(image,filen[2])
 
 #draw contours
@@ -247,7 +247,7 @@ extracted = " "
 
 #crop rois per type
 if args["type"] == "no_expiration":
-    print("no expiration date")
+    #print("no expiration date")
     #crop name
     n_roi = image[535:995, 340:830]
     store_image(n_roi, "2a_name_roi", filen[2])
@@ -260,7 +260,7 @@ if args["type"] == "no_expiration":
     extracted = re.sub('\n',' ',extracted)
 else:
     if args["type"] == "driversA":
-        print("drivers_a")
+        #print("drivers_a")
         #crop name
         n_roi = image[420:570, 1:1625]
         store_image(n_roi, "2a_name_roi", filen[2])
@@ -270,7 +270,7 @@ else:
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
     elif args["type"] == "driversB":
-        print("drivers_b")
+        #print("drivers_b")
         #crop name
         n_roi = image[485:655, 670:2165]
         store_image(n_roi, "2a_name_roi", filen[2])
@@ -280,7 +280,7 @@ else:
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
     elif args["type"] == "passport":
-        print("passport")
+        #print("passport")
         #crop name
         n_roi = image[285:735, 730:1300]
         store_image(n_roi, "2a_name_roi", filen[2])
@@ -290,7 +290,7 @@ else:
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
     elif args["type"] == "prc":
-        print("prc")
+        #print("prc")
         #crop name
         n_roi = image[570:900, 515:1240]
         store_image(n_roi, "2a_name_roi", filen[2])
@@ -321,7 +321,7 @@ else:
     dextracted = change_format(month,dextracted,args["type"])
     converted = re.sub('\\s+','',dextracted)
 
-print(extracted)
+#print(extracted)
 uname = args["name"].split("/") 
 #validate name
 if ((uname[0]).upper() in extracted) or ((uname[1]).upper() in extracted):

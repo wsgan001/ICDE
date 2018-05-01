@@ -137,7 +137,7 @@ if __name__ == "__main__":
   id_type_result = 0.0
 
   for i in top_k:
-    print(labels[i], results[i])
+    #print(labels[i], results[i])
     if(results[i]>=id_type_result):
       id_type_result=results[i]
       id_type=labels[i]
@@ -152,6 +152,7 @@ if __name__ == "__main__":
       id_type="driversB"
     elif(id_type == "up id"):
       id_type="up"
+    print(id_type)
 
   classified = open('tf_files/classified.txt','w')
   classified.write(id_type)

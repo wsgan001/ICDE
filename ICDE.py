@@ -110,7 +110,7 @@ class App(object):
 		self.filename = tkFileDialog.askopenfilename(initialdir = "tf_files/source_images/",title = "Browse file",filetypes = (("all files","*.*"),("jpg","*.jpg*"),("jpeg","*.jpeg*"),("png","*.png*")))
 		filen = self.filename.split("/")
 		path = filen[8]+"/"+filen[9]
-		print(path)
+		# print(path)
 		#run classifier
 		print("\n==========Classifying ID Type...==========\n")
 		os.system('python -m scripts.label_image --graph=tf_files/retrained_graph.pb  --image=tf_files/{0}'.format(path))
