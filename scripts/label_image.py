@@ -142,9 +142,10 @@ if __name__ == "__main__":
       id_type_result=results[i]
       id_type=labels[i]
 
+
   if(id_type == "no expiration"):
-    print("No expiration")
-    id_type="no_expiration"
+    print("UMID")
+    id_type="UMID"
   else:
     if(id_type == "drivers a"):
       id_type="driversA"

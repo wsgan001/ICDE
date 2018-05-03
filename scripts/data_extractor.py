@@ -94,9 +94,10 @@ def warp(img, pts):
     maxH = distance_formula(tr,br,tl,bl)
     dist = np.array([[0, 0],[maxW - 1, 0],[maxW - 1, maxH - 1],[0, maxH - 1]], dtype = "float32")
     transform = cv2.getPerspectiveTransform(np.array([tl, tr, br, bl], dtype="float32"), dist)
-    #warpped = cv2.warpPerspective(image, transform, (maxW, maxH))
     cropped = img[int(tl[1]):int(br[1]), int(tl[0]):int(br[0])]
-    return cropped
+    
+    resized = cv2.resize(cropped,(int(3000),int(2000)))
+    return resized
 
 #======LOCATING ID CARD=====
 def possibleContour(cnt, fwidth, fheight):
@@ -142,11 +143,9 @@ def find_card(img,filen):
     #convert to grayscale to find contours
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray,(1,1),1000)
-    #store_image(blur, '1preprocess_gray', filen)
 
     #thresholding and contouring
     flag, thresh = cv2.threshold(blur, 115, 255, cv2.THRESH_BINARY)
-    #store_image(thresh, '2preprocess_thresh', filen)
     im2, contours, hierarchy =  cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
     contoured = img.copy()
 
@@ -158,15 +157,12 @@ def find_card(img,filen):
             if max is None or cv2.contourArea(max) < cv2.contourArea(cnt):
                 max = cnt
 
-    #store_image(contoured, "3possible_contours", filen)
-
     #find corners of the card
     rect = cv2.minAreaRect(max)
     box = cv2.boxPoints(rect)
     box = np.int0(box)
     return box
 
-#
 def extract(image,info,dinfo,dtype):
     #downsample and apply grayscale
     rgb = pyrDown(image)
@@ -181,7 +177,7 @@ def extract(image,info,dinfo,dtype):
     #noise removal
     _, bw = threshold(morph, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
     kernel = getStructuringElement(cv2.MORPH_RECT, (5, 1))
-    store_image(bw, "8binarized_tesseract", filen[2])
+    #store_image(bw, "8binarized_tesseract", filen[2])
 
     #connected components
     connected = morphologyEx(bw, cv2.MORPH_CLOSE, kernel)
@@ -205,8 +201,8 @@ def extract(image,info,dinfo,dtype):
             dinfo = extract_data(cropped,info,dinfo,dtype)
         if r > 0.5 and rect_height > 15 and rect_width > 35 and rect_height < rect_width:
             cnt = rectangle(rgb, (x, y+rect_height), (x+rect_width, y), (0,255,0),2)
-            
-    store_image(cnt, "4possible_contours_tesseract", filen[2])
+    
+    #store_image(cnt, "4possible_contours_tesseract", filen[2])
     return dinfo
 
 def insert_into_db(ip,user,pswd,db,user_id,fname,mname,lname,dtype,dextracted):
@@ -224,129 +220,97 @@ cursor = conn.cursor()
 ap = argparse.ArgumentParser()
 ap.add_argument("-i", "--image", required = True, help = "path")
 ap.add_argument("-t", "--type", type = str,  required = True)
-ap.add_argument("-n", "--name", type = str,  required = True)
-ap.add_argument("-u", "--user", type = str,  required = True)
 args = vars(ap.parse_args())
 
 #load image and find square
 image = cv2.imread(args["image"])
 filen = args["image"].split("/")
-#print("Input image: " + filen[2])
 card = find_card(image,filen[2])
 
 #draw contours
 contoured = cv2.drawContours(image.copy(), [card], -1, (0,255,0), 3)
-#store_image(contoured, "4located_card", filen[2])
 
-#warp and crop
+#crop and resize
 image = warp(contoured, card)
 store_image(image, "1perspective_crop", filen[2])
+
 info = []
 dinfo = []
-extracted = " "
-
+extracted=""
 #crop rois per type
-if args["type"] == "no_expiration":
-    #print("no expiration date")
-    #crop name
-    n_roi = image[535:995, 340:830]
-    store_image(n_roi, "2a_name_roi", filen[2])
-    extract(n_roi,info,dinfo,0)
+if args["type"] == "UMID":
+    #extract info
+    ln_roi = image[625:810, 465:1065]
+    store_image(ln_roi, "2a_lname_roi", filen[2])
+    extract(ln_roi,info,dinfo,0)
+
+    fn_roi = image[810:995, 465:1065]
+    store_image(fn_roi, "2a_fname_roi", filen[2])
+    extract(fn_roi,info,dinfo,0)
+
+    mn_roi = image[985:1185, 465:1065]
+    store_image(mn_roi, "2a_mname_roi", filen[2])
+    extract(mn_roi,info,dinfo,0)
 
     for i in info:
         extracted += i
 
     extracted = re.sub('[^A-Z\n]',' ',extracted)
     extracted = re.sub('\n',' ',extracted)
+    
+    #insert to db
+    print(extracted)
+    print("no expiration")
+    # insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],None); 
 else:
     if args["type"] == "driversA":
-        #print("drivers_a")
-        #crop name
-        n_roi = image[420:570, 1:1625]
+        n_roi = image[545:745, 25:2050]
         store_image(n_roi, "2a_name_roi", filen[2])
         extract(n_roi,info,dinfo,0)
-        #crop date
-        d_roi = image[965:1075, 1725:2200]
+
+        d_roi = image[1170:1295, 2310:2815]
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
     elif args["type"] == "driversB":
-        #print("drivers_b")
-        #crop name
-        n_roi = image[485:655, 670:2165]
+        n_roi = image[645:765, 1035:2860]
         store_image(n_roi, "2a_name_roi", filen[2])
         extract(n_roi,info,dinfo,0)
-        #crop date
-        d_roi = image[1065:1230, 1250:1690]
+
+        d_roi = image[1330:1475, 1720:2255]
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
     elif args["type"] == "passport":
-        #print("passport")
-        #crop name
-        n_roi = image[285:735, 730:1300]
-        store_image(n_roi, "2a_name_roi", filen[2])
-        extract(n_roi,info,dinfo,0)
-        #crop date
-        d_roi = image[1125:1300, 720:1145]
+        print("passport")
+    elif args["type"] == "prc":
+        ln_roi = image[705:865, 735:1540]
+        store_image(ln_roi, "2a_lname_roi", filen[2])
+        extract(ln_roi,info,dinfo,0)
+
+        fn_roi = image[830:995, 735:1540]
+        store_image(fn_roi, "2a_fname_roi", filen[2])
+        extract(fn_roi,info,dinfo,0)
+
+        mn_roi = image[920:1095, 735:1540]
+        store_image(mn_roi, "2a_mname_roi", filen[2])
+        extract(mn_roi,info,dinfo,0)
+
+        d_roi = image[1275:1430, 735:1540]
         store_image(d_roi, "2b_date_roi", filen[2])
         dinfo =extract(d_roi,info,dinfo,1)
-    elif args["type"] == "prc":
-        #print("prc")
-        #crop name
-        n_roi = image[570:900, 515:1240]
-        store_image(n_roi, "2a_name_roi", filen[2])
-        extract(n_roi,info,dinfo,0)
-        #crop date
-        d_roi = image[1040:1200, 510:1090]
-        store_image(d_roi, "2b_date_roi", filen[2])
-        dinfo = extract(d_roi,info,dinfo,1)
 
     for i in info:
         extracted += i
 
     extracted = re.sub('[^A-Z\n]',' ',extracted)
     extracted = re.sub('\n',' ',extracted)
-
+    print(extracted)
     dextracted = " "
     month = " "
     for i in dinfo:
         dextracted += i
+    print(dextracted)
+    # insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],dextracted);   
 
-    #change format
-    if(args["type"]!="passport"):
-        dextracted = re.sub('[^0-9]',' ',dextracted)
-    else:
-        month = re.sub('[^A-Za-z]','',dextracted)
-        dextracted = re.sub('[^0-9]',' ',dextracted)
-
-    dextracted = change_format(month,dextracted,args["type"])
-    converted = re.sub('\\s+','',dextracted)
-
-#print(extracted)
-uname = args["name"].split("/") 
-#validate name
-if ((uname[0]).upper() in extracted) or ((uname[1]).upper() in extracted):
-    #if date is still valid insert into db
-    uname[1] = re.sub('-'," ",uname[1])
-    uname[2] = re.sub('-'," ",uname[2])
-    print("===========NAME===========")
-    print(uname[0]+","+uname[1]+" "+uname[2])
-    if args["type"] == "no_expiration":
-        insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],None); 
-        error_message = " "      
-    else:
-        if(datetime.strptime(converted, "%Y-%m-%d").date()>datetime.today().date()):
-            print("===========DATE===========")
-            print(dextracted)
-            insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],dextracted);
-            error_message = " "
-        else:
-            error_message = "Invalid date"
-else:
-    error_message = "ID does not belong to the user"
-    
-error = open('tf_files/error.txt','w')
-error.write(error_message)
-error.close() 
 conn.commit()
 conn.close()
 
