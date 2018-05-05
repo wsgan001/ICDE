@@ -35,39 +35,55 @@ def extract_data(img,info,dinfo,dtype):
     return dinfo
 
 def change_format(m,dt,dtype):
+    month = ""
     if(dtype=="driversA" or dtype=="driversB"):
         return re.sub(r'(\d{4})\s(\d{1,2})\s(\d{1,2})', '\\1-\\2-\\3', dt)
     elif(dtype=="prc"):
-        return re.sub(r'(\d{1,2})\s(\d{1,2})\s(\d{4})', '\\3-\\1-\\2', dt)
+        return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{4})', '\\3-\\1-\\2', dt)
     else:
         if(m=="Jan" or m=="JAN"):
+            month = m
             m="01"
         elif(m=="Feb" or m=="FEB"):
+            month = m
             m="02"
         elif(m=="Mar" or m=="MAR"):
+            month = m
             m="03"
         elif(m=="Apr" or m=="APR"):
+            month = m
             m="04"
         elif(m=="May" or m=="MAY"):
+            month = m
             m="05"
         elif(m=="Jun" or m=="JUN"):
+            month = m
             m="06"
         elif(m=="Jul" or m=="JUL"):
+            month = m
             m="07"
         elif(m=="Aug" or m=="AUG"):
+            month = m
             m="08"
         elif(m=="Sep" or m=="SEP"):
+            month = m
             m="09"
         elif(m=="Oct" or m=="OCT"):
+            month = m
             m="10"
         elif(m=="Nov" or m=="NOV"):
+            month = m
             m="11"
         elif(m=="Dec" or m=="DEC"):
+            month = m
             m="12"
 
-        #print(dt)
         dt=m+" "+dt
-        return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})', '20\\3-\\1-\\2', dt)
+        pattern = re.compile("[^a-z]")
+        if pattern.match(month):
+            return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{4})', '\\3-\\1-\\2', dt)
+        else:
+            return re.sub(r'(\d{1,2})\s+(\d{1,2})\s+(\d{1,2})', '20\\3-\\1-\\2', dt)
 
 def locate_points(pts):
     ret = np.zeros((4,2), dtype = "float32")
@@ -163,57 +179,47 @@ def find_card(img,filen):
     box = np.int0(box)
     return box
 
-def extract(image,info,dinfo,dtype):
+def extract(image,m,k,h,w,info,dinfo,dtype):
     #downsample and apply grayscale
     rgb = pyrDown(image)
     gray = cvtColor(rgb, cv2.COLOR_BGR2GRAY)
-    #store_image(gray, "6grayscale_tesseract", filen[2])
 
     #apply morphology
-    kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    kernel = getStructuringElement(cv2.MORPH_ELLIPSE, (m, m))
     morph = morphologyEx(gray, cv2.MORPH_GRADIENT, kernel)
-    #store_image(morph, "7morphology_tesseract", filen[2])
 
     #noise removal
     _, bw = threshold(morph, 0, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-    kernel = getStructuringElement(cv2.MORPH_RECT, (5, 1))
-    #store_image(bw, "8binarized_tesseract", filen[2])
+    kernel = getStructuringElement(cv2.MORPH_RECT, (k, k))
+      
+    # Find the contours
+    _, contours,hierarchy = cv2.findContours(bw,cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)
 
-    #connected components
-    connected = morphologyEx(bw, cv2.MORPH_CLOSE, kernel)
-    mask = np.zeros(bw.shape, np.uint8)
-    im2, contours, hierarchy = findContours(connected, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
-    store_image(connected, "3connected_components_tesseract", filen[2])
-
-    #find contours
-    for idx in range(0, len(hierarchy[0])):
-        rect = x, y, rect_width, rect_height = boundingRect(contours[idx])
-        # fill the contour
-        mask = drawContours(mask, contours, idx, (255, 255, 255), cv2.FILLED)
-        # ratio of non-zero pixels in the filled region
-        r = float(countNonZero(mask)) / (rect_width * rect_height)
-        if r > 0.5 and rect_height > 15 and rect_width > 35 and rect_height < rect_width:
-            temp = rgb.copy()   #to avoid multiple rectangles on one component
-            cnt = rectangle(temp, (x, y+rect_height), (x+rect_width, y), (0,255,0),2)
-            cropped = cnt[y:y+rect_height, x:x+rect_width]
+    # For each contour, find the bounding rectangle and draw it
+    for cnt in contours:
+        x,y,rect_w,rect_h = cv2.boundingRect(cnt)
+        if rect_h > h  and rect_w > w:
+            temp = rgb.copy()
+            contour = cv2.rectangle(temp,(x,y),(x+rect_w,y+rect_h),(0,255,0),2)
+            cropped = contour[y:y+rect_h, x:x+rect_w]
             store_image(cropped, "5contours_tesseract", filen[2])
             #apply ocr for each component
             dinfo = extract_data(cropped,info,dinfo,dtype)
-        if r > 0.5 and rect_height > 15 and rect_width > 35 and rect_height < rect_width:
-            cnt = rectangle(rgb, (x, y+rect_height), (x+rect_width, y), (0,255,0),2)
-    
-    #store_image(cnt, "4possible_contours_tesseract", filen[2])
-    return dinfo
+        if rect_h > h  and rect_w > w:
+            contour = cv2.rectangle(rgb,(x,y),(x+rect_w,y+rect_h),(0,255,0),2)
 
-def insert_into_db(ip,user,pswd,db,user_id,fname,mname,lname,dtype,dextracted):
-    cursor.execute("""INSERT INTO identification_card VALUES (%s,%s,%s,%s,%s,%s,%s)""",(0,user_id,fname,mname,lname,dtype,dextracted))
+    #store_image(contour, "4possible_contours_tesseract", filen[2])
+    return dinfo 
+
+def insert_into_db(ip,user,pswd,db,lname,fname,mname,dtype,dextracted):
+    cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,lname,fname,mname,dtype,dextracted))
     
 #=======MAIN PROGRAM========
 #arguments
 ip="localhost"
 user="root"
 pswd="Nutella4898"
-db="icde"
+db="icdedb"
 conn = mdb.connect(ip,user,pswd,db)
 cursor = conn.cursor()
 
@@ -237,20 +243,24 @@ store_image(image, "1perspective_crop", filen[2])
 info = []
 dinfo = []
 extracted=""
+fn = ""
+mn = ""
+ln = ""
+m = " "
 #crop rois per type
 if args["type"] == "UMID":
     #extract info
     ln_roi = image[625:810, 465:1065]
     store_image(ln_roi, "2a_lname_roi", filen[2])
-    extract(ln_roi,info,dinfo,0)
+    extract(ln_roi,3,5,5,15,info,dinfo,0)
 
     fn_roi = image[810:995, 465:1065]
     store_image(fn_roi, "2a_fname_roi", filen[2])
-    extract(fn_roi,info,dinfo,0)
+    extract(fn_roi,3,5,5,15,info,dinfo,0)
 
     mn_roi = image[985:1185, 465:1065]
     store_image(mn_roi, "2a_mname_roi", filen[2])
-    extract(mn_roi,info,dinfo,0)
+    extract(mn_roi,3,5,15,15,info,dinfo,0)
 
     for i in info:
         extracted += i
@@ -259,57 +269,126 @@ if args["type"] == "UMID":
     extracted = re.sub('\n',' ',extracted)
     
     #insert to db
-    print(extracted)
-    print("no expiration")
+    ln = re.sub('[^A-Z]',' ',ln)
+    mn = re.sub('[^A-Z]',' ',mn)
+    ln = re.sub('\n',' ',ln)
+    mn = re.sub('\n',' ',mn)
+    fn = re.sub('\n',' ',fn)
+    print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn
+    print "ID Type: " + args["type"] + "\nValidity Date: No Expiration"
     # insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],None); 
 else:
     if args["type"] == "driversA":
         n_roi = image[545:745, 25:2050]
         store_image(n_roi, "2a_name_roi", filen[2])
-        extract(n_roi,info,dinfo,0)
+        extract(n_roi,12,150,35,20,info,dinfo,0)
 
         d_roi = image[1170:1295, 2310:2815]
         store_image(d_roi, "2b_date_roi", filen[2])
-        dinfo =extract(d_roi,info,dinfo,1)
+        dinfo =extract(d_roi,15,150,40,105,info,dinfo,1)
     elif args["type"] == "driversB":
         n_roi = image[645:765, 1035:2860]
         store_image(n_roi, "2a_name_roi", filen[2])
-        extract(n_roi,info,dinfo,0)
+        extract(n_roi,17,150,35,20,info,dinfo,0)
 
         d_roi = image[1330:1475, 1720:2255]
         store_image(d_roi, "2b_date_roi", filen[2])
-        dinfo =extract(d_roi,info,dinfo,1)
+        dinfo =extract(d_roi,15,150,40,105,info,dinfo,1)
     elif args["type"] == "passport":
-        print("passport")
-    elif args["type"] == "prc":
-        ln_roi = image[705:865, 735:1540]
+        # ln_roi = image[400:500, 945:1745]
+        # store_image(ln_roi, "2a_lname_roi", filen[2])
+        # extract(ln_roi,12,150,35,45,info,dinfo,0)
+
+        # fn_roi = image[550:665, 945:1745]
+        # store_image(fn_roi, "2a_fname_roi", filen[2])
+        # extract(fn_roi,12,150,35,45,info,dinfo,0)
+
+        # mn_roi = image[700:820, 945:1745]
+        # store_image(mn_roi, "2a_mname_roi", filen[2])
+        # extract(mn_roi,12,150,35,30,info,dinfo,0)
+
+        # d_roi = image[1350:1470, 940:1745]
+        # store_image(d_roi, "2b_date_roi", filen[2])
+        # dinfo =extract(d_roi,25,150,15,35,info,dinfo,1)
+
+        ln_roi = image[390:570, 1010:1825]
         store_image(ln_roi, "2a_lname_roi", filen[2])
-        extract(ln_roi,info,dinfo,0)
+        extract(ln_roi,10,150,35,20,info,dinfo,0)
+
+        fn_roi = image[590:750, 1010:1825]
+        store_image(fn_roi, "2a_fname_roi", filen[2])
+        extract(fn_roi,12,150,35,25,info,dinfo,0)
+
+        mn_roi = image[760:930, 1010:1825]
+        store_image(mn_roi, "2a_mname_roi", filen[2])
+        extract(mn_roi,12,150,35,25,info,dinfo,0)
+
+        d_roi = image[1520:1615, 1010:1825]
+        store_image(d_roi, "2b_date_roi", filen[2])
+        dinfo =extract(d_roi,20,150,40,105,info,dinfo,1)
+    elif args["type"] == "prc":
+        ln_roi = image[705:865, 735:1745]
+        store_image(ln_roi, "2a_lname_roi", filen[2])
+        extract(ln_roi,10,150,35,20,info,dinfo,0)
 
         fn_roi = image[830:995, 735:1540]
         store_image(fn_roi, "2a_fname_roi", filen[2])
-        extract(fn_roi,info,dinfo,0)
+        extract(fn_roi,10,150,35,25,info,dinfo,0)
 
         mn_roi = image[920:1095, 735:1540]
         store_image(mn_roi, "2a_mname_roi", filen[2])
-        extract(mn_roi,info,dinfo,0)
+        extract(mn_roi,10,150,35,20,info,dinfo,0)
 
         d_roi = image[1275:1430, 735:1540]
         store_image(d_roi, "2b_date_roi", filen[2])
-        dinfo =extract(d_roi,info,dinfo,1)
+        dinfo =extract(d_roi,14,150,45,105,info,dinfo,1)
 
-    for i in info:
-        extracted += i
+    if args["type"] == "driversA" or args["type"] == "driversB":
+        ln,mn = info[-1], info[0]
+        info.remove(ln)
+        info.remove(mn)
+        info.reverse()
+        for i in info:
+            fn += i
+    elif args["type"] == "passport" or args["type"] == "prc":
+        ln,mn = info[0], info[-1]
+        info.remove(ln)
+        info.remove(mn)
+        info.reverse()
+        for i in info:
+            fn += i
+    else:
+        for i in info:
+            extracted += i
 
-    extracted = re.sub('[^A-Z\n]',' ',extracted)
-    extracted = re.sub('\n',' ',extracted)
-    print(extracted)
+        extracted = re.sub('[^A-Z\n]',' ',extracted)
+        extracted = re.sub('\n',' ',extracted)
+        print(extracted)
+
+    ln = re.sub('[^A-Z]',' ',ln)
+    ln = re.sub('\s+','',ln)
+    mn = re.sub('[^A-Z]',' ',mn)
+    ln = re.sub('\n',' ',ln)
+    mn = re.sub('\n',' ',mn)
+    fn = re.sub('\n',' ',fn)
+    print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn
+
     dextracted = " "
     month = " "
     for i in dinfo:
         dextracted += i
-    print(dextracted)
-    # insert_into_db(ip,user,pswd,db,args["user"],uname[1],uname[2],uname[0],args["type"],dextracted);   
+
+    if(args["type"]!="passport"):
+        dextracted = re.sub('[^0-9]',' ',dextracted)
+    else:
+        month = re.sub('[^A-Za-z]','',dextracted)
+        dextracted = re.sub('[^0-9]',' ',dextracted)
+
+    dextracted = change_format(month,dextracted,args["type"])
+    converted = re.sub('\\s+','',dextracted)
+
+    print "ID Type: " + args["type"] + "\nValidity Date: " + converted
+    insert_into_db(ip,user,pswd,db,ln,fn,mn,args["type"],dextracted);   
 
 conn.commit()
 conn.close()

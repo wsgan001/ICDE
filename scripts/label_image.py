@@ -146,6 +146,9 @@ if __name__ == "__main__":
   if(id_type == "no expiration"):
     print("UMID")
     id_type="UMID"
+  elif(id_type == "invalid"):
+    print("invalid")
+    id_type="invalid"
   else:
     if(id_type == "drivers a"):
       id_type="driversA"

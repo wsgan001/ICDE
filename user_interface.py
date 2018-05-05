@@ -83,11 +83,14 @@ class App(object):
 		os.system('python -m scripts.label_image --graph=tf_files/retrained_graph.pb  --image=tf_files/{0}'.format(path))
 		
 		#run extractor
-		print("\n========Extracting Name and Date...========\n")
 		classified = open('tf_files/classified.txt','r').read()
 		id_type = classified
-		os.system('python scripts/data_extractor.py --image tf_files/{0} --type {1}'.format(path,id_type))
-
+		if id_type == "invalid":
+			showerror('Error!', "Secondary IDs are considered as Invalid")
+		else:
+			print("\n========Extracting Name and Date...========\n")
+			os.system('python scripts/data_extractor.py --image tf_files/{0} --type {1}'.format(path,id_type))
+		self.view_records()
 def main():
 	window= Tk()
 	start = App(window,"localhost","root","Nutella4898","icdedb")
