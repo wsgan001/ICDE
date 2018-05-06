@@ -1,11 +1,11 @@
 1. ACTIVATE TENSORFLOW:
 source ~/tensorflow/bin/activate
+tensorboard --logdir tf_files/training_summaries &
 
 2. HOW TO RETRAIN:
 IMAGE_SIZE=224
 ARCHITECTURE="mobilenet_0.50_${IMAGE_SIZE}"
 
-tensorboard --logdir tf_files/training_summaries &
 kill: pkill -f "tensorboard"
 
 python -m scripts.retrain \

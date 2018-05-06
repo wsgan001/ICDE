@@ -59,7 +59,7 @@ class App(object):
 		conn = mdb.connect("localhost","root","Nutella4898","icdedb")
 		cursor = conn.cursor()
 		for i in range(0,6):
-			cursor.execute("""SELECT * FROM cards ORDER BY lname""")
+			cursor.execute("""SELECT * FROM cards""")
 			
 		for row in cursor:
 			self.tree.insert('','end',text=row[0],values=(row[1],row[2],row[3],row[4],row[5]))
