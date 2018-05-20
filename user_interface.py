@@ -14,7 +14,7 @@ class App(object):
 		self.db=db
 
 		window.wm_title("ICDE")
-		window.geometry('550x250')
+		window.geometry('700x250')
 
 		#set the current row to zero
 		self.current_row=0
@@ -22,14 +22,14 @@ class App(object):
 		#tree view
 		self.tree = ttk.Treeview(window)
 		self.tree["columns"] = ("one","two", "three", "four", "five")
-		self.tree.column("one",width=100)
-		self.tree.column("two",width=100)
-		self.tree.column("three",width=100)
-		self.tree.column("four",width=100)
-		self.tree.column("five",width=100)
+		self.tree.column("one",width=125)
+		self.tree.column("two",width=150)
+		self.tree.column("three",width=125)
+		self.tree.column("four",width=160)
+		self.tree.column("five",width=90)
 		self.tree.column("#0",width=30,anchor='w')
 
-		self.tree.grid(row=self.current_row, column=0, columnspan=6)
+		self.tree.grid(row=self.current_row, column=0, columnspan=9)
 		self.tree.heading("#0",text="Id", anchor='w')
 		self.tree.heading("one",text="Lastname")
 		self.tree.heading("two",text="Firstname")
@@ -39,7 +39,7 @@ class App(object):
 				
 		#scrollbar
 		self.scroll= Scrollbar(window)
-		self.scroll.grid(row=self.current_row,column=7,rowspan=10)
+		self.scroll.grid(row=self.current_row,column=10,rowspan=10)
 		self.tree.configure(yscrollcommand=self.scroll.set)
 		self.scroll.configure(command=self.tree.yview)
 		self.current_row += 1
@@ -47,7 +47,7 @@ class App(object):
 		#add button
 		self.message = Label(text="", fg = "red").grid(row=self.current_row+1,column=3)
 		self.update_btn=Button(window,text="Upload",width=12,command=self.upload)
-		self.update_btn.grid(row=self.current_row,column=3)
+		self.update_btn.grid(row=self.current_row,column=4)
 		self.current_row += 1
 
 		self.view_records()

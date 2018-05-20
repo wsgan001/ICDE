@@ -277,9 +277,21 @@ ln = re.sub('\n',' ',ln)
 mn = re.sub('\n',' ',mn)
 fn = re.sub('\n',' ',fn)
 
+cardType = "";
 if(args["type"]=="UMID"):
-    cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,args["type"],None))
-    print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + args["type"] + "\nValid until: No expiration" 
+    cardType = "UMID"
+elif(args["type"]=="driversA"):
+    cardType = "DRIVER'S LICENSE (OLD)"
+elif(args["type"]=="driversB"):
+    cardType = "DRIVER'S LICENSE (NEW)"
+elif(args["type"]=="passport"):
+    cardType = "PASSPORT"
+elif(args["type"]=="prc"):
+    cardType = "PRC"
+
+if(args["type"]=="UMID"):
+    cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,cardType,None))
+    print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + cardType + "\nValid until: No expiration" 
 else:
     for i in extracted_date:
         dextracted += i
@@ -289,13 +301,13 @@ else:
     elif(args["type"]!="driversA"):
         dextracted = re.sub('[^0-9]',' ',dextracted)
     if(args["type"]=="driversA"):
-        cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,args["type"],dextracted))
-        print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + args["type"] + "\nValid until: " + dextracted
+        cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,cardType,dextracted))
+        print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + cardType + "\nValid until: " + dextracted
     else:
         dextracted = change_format(month,dextracted,args["type"])
         converted = re.sub('\\s+','',dextracted)
-        cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,args["type"],converted))
-        print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + args["type"] + "\nValid until: " + converted
+        cursor.execute("""INSERT INTO cards VALUES (%s,%s,%s,%s,%s,%s)""",(0,ln,fn,mn,cardType,converted))
+        print "Lastname: " + ln + "\nFirstname: " + fn + "\nMiddlename: " + mn + "\nID type: " + cardType + "\nValid until: " + converted
     
 conn.commit()
 conn.close()
