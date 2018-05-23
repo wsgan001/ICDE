@@ -1,28 +1,54 @@
-1. ACTIVATE TENSORFLOW:
-source ~/tensorflow/bin/activate
-tensorboard --logdir tf_files/training_summaries &
+WHAT TO INSTALL:
+1. Python Packages
+  A. numpy
+  B. cv2
+  C. pytesseract
+  D. argparse
+  E. os
+  F. re
+  G. pymysql
+  H. pandas
+  I. Tkinter
 
-2. HOW TO RETRAIN:
-IMAGE_SIZE=224
-ARCHITECTURE="mobilenet_0.50_${IMAGE_SIZE}"
+2. Tensorflow
+  A. Install Tensorflow
+    https://www.tensorflow.org/versions/r1.7/install/
+    pip install --upgrade "tensorflow==1.7.*"
+  B. Clone ICDE
+    https://github.com/karsmae/ICDE
+  C. Activate Tensorboard
+    source ~/tensorflow/bin/activate
+    tensorboard --logdir tf_files/training_summaries &
+    C.1. Retraining
+      IMAGE_SIZE=224
+      ARCHITECTURE="mobilenet_0.50_${IMAGE_SIZE}"
 
-kill: pkill -f "tensorboard"
+      python -m scripts.retrain \
+      --bottleneck_dir=tf_files/bottlenecks \
+      --how_many_training_steps=1500 \
+      --model_dir=tf_files/models/ \
+      --summaries_dir=tf_files/training_summaries/"${ARCHITECTURE}" \
+      --output_graph=tf_files/retrained_graph.pb \
+      --output_labels=tf_files/retrained_labels.txt \
+      --architecture="${ARCHITECTURE}" \
+      --image_dir=tf_files/id_photos
+    C.2. Testing
+      python -m scripts.label_image \
+      --graph=tf_files/retrained_graph.pb  \
+      --image=tf_files/test/imagefilename.jpg
+    C.3. Deactivate Tensorboard
+      pkill -f "tensorboard"
 
-python -m scripts.retrain \
-  --bottleneck_dir=tf_files/bottlenecks \
-  --how_many_training_steps=1500 \
-  --model_dir=tf_files/models/ \
-  --summaries_dir=tf_files/training_summaries/"${ARCHITECTURE}" \
-  --output_graph=tf_files/retrained_graph.pb \
-  --output_labels=tf_files/retrained_labels.txt \
-  --architecture="${ARCHITECTURE}" \
-  --image_dir=tf_files/id_photos
+HOW TO RUN THE APPLICATION:
+1.  Import icdedb.sql
+2.  Run the application:
+    python user_interface.py
+3.  Upload photo
+4.  The system may:
+  A. Return an error message saying: ID is a secondary ID
+  B. Display the extracted information 
 
-3. HOW TO TEST:
-python -m scripts.label_image \
-    --graph=tf_files/retrained_graph.pb  \
-    --image=tf_files/test/name.jpg
+Reference:
+https://codelabs.developers.google.com/codelabs/tensorflow-for-poets/
 
-4. SEND PATH NAME AS A PARAMETER IN DATA EXTRACTION:
-python icde.py --image path_name --type card_type
 
